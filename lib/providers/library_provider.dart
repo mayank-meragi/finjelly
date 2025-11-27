@@ -16,22 +16,30 @@ class LibraryItemsState {
   final List<dynamic> items;
   final bool isLoadingMore;
   final bool hasMore;
+  final String sortBy;
+  final String sortOrder;
 
   LibraryItemsState({
     required this.items,
     this.isLoadingMore = false,
     this.hasMore = true,
+    this.sortBy = 'SortName',
+    this.sortOrder = 'Ascending',
   });
 
   LibraryItemsState copyWith({
     List<dynamic>? items,
     bool? isLoadingMore,
     bool? hasMore,
+    String? sortBy,
+    String? sortOrder,
   }) {
     return LibraryItemsState(
       items: items ?? this.items,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
+      sortBy: sortBy ?? this.sortBy,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 }
@@ -47,19 +55,34 @@ class LibraryItemsNotifier
     _loadInitial();
   }
 
-  Future<void> _loadInitial() async {
+  Future<void> _loadInitial({String? sortBy, String? sortOrder}) async {
     try {
       final items = await _jellyfinService.getItems(
         _parentId,
         startIndex: 0,
         limit: _limit,
+        sortBy: sortBy ?? 'SortName',
+        sortOrder: sortOrder ?? 'Ascending',
       );
       state = AsyncValue.data(
-        LibraryItemsState(items: items, hasMore: items.length == _limit),
+        LibraryItemsState(
+          items: items,
+          hasMore: items.length == _limit,
+          sortBy: sortBy ?? 'SortName',
+          sortOrder: sortOrder ?? 'Ascending',
+        ),
       );
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
+  }
+
+  Future<void> setSortOptions(String sortBy, String sortOrder) async {
+    // Set loading state
+    state = const AsyncValue.loading();
+
+    // Reload with new sort options
+    await _loadInitial(sortBy: sortBy, sortOrder: sortOrder);
   }
 
   Future<void> loadNextPage() async {
@@ -79,6 +102,8 @@ class LibraryItemsNotifier
         _parentId,
         startIndex: currentItems.length,
         limit: _limit,
+        sortBy: currentState.sortBy,
+        sortOrder: currentState.sortOrder,
       );
 
       state = AsyncValue.data(

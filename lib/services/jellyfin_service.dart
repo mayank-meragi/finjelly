@@ -38,6 +38,8 @@ class JellyfinService {
     String parentId, {
     int startIndex = 0,
     int limit = 25,
+    String sortBy = 'SortName',
+    String sortOrder = 'Ascending',
   }) async {
     final serverUrl = await _authService.getServerUrl();
     final userId = await _authService.getUserId();
@@ -48,9 +50,10 @@ class JellyfinService {
         '$serverUrl/Users/$userId/Items',
         queryParameters: {
           'ParentId': parentId,
-          'SortBy': 'SortName',
-          'SortOrder': 'Ascending',
-          'Fields': 'PrimaryImageAspectRatio,Overview,ProductionYear',
+          'SortBy': sortBy,
+          'SortOrder': sortOrder,
+          'Fields':
+              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating',
           'StartIndex': startIndex,
           'Limit': limit,
         },

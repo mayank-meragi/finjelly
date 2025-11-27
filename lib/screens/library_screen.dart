@@ -39,13 +39,175 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
   }
 
+  String _getSortLabel(String sortBy) {
+    switch (sortBy) {
+      case 'SortName':
+        return 'Name';
+      case 'PremiereDate':
+        return 'Release Date';
+      case 'DateCreated':
+        return 'Date Added';
+      case 'CommunityRating':
+        return 'Rating';
+      case 'Random':
+        return 'Random';
+      default:
+        return sortBy;
+    }
+  }
+
+  String? _getSortValue(Map<String, dynamic> item, String sortBy) {
+    switch (sortBy) {
+      case 'PremiereDate':
+        final date = item['PremiereDate'];
+        if (date != null) {
+          try {
+            final dateTime = DateTime.parse(date);
+            return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+          } catch (e) {
+            return null;
+          }
+        }
+        return null;
+      case 'DateCreated':
+        final date = item['DateCreated'];
+        if (date != null) {
+          try {
+            final dateTime = DateTime.parse(date);
+            return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')}';
+          } catch (e) {
+            return null;
+          }
+        }
+        return null;
+      case 'CommunityRating':
+        final rating = item['CommunityRating'];
+        if (rating != null) {
+          return '⭐ ${rating.toStringAsFixed(1)}';
+        }
+        return null;
+      case 'SortName':
+      case 'Random':
+      default:
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final itemsStateAsync = ref.watch(libraryItemsProvider(widget.libraryId));
     final jellyfinService = ref.watch(jellyfinServiceProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.libraryName)),
+      appBar: AppBar(
+        title: Text(widget.libraryName),
+        actions: [
+          itemsStateAsync.maybeWhen(
+            data: (state) => Row(
+              children: [
+                // Sort field selector
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.sort),
+                  tooltip: 'Sort by ${_getSortLabel(state.sortBy)}',
+                  onSelected: (value) {
+                    ref
+                        .read(libraryItemsProvider(widget.libraryId).notifier)
+                        .setSortOptions(value, state.sortOrder);
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'SortName',
+                      child: Row(
+                        children: [
+                          if (state.sortBy == 'SortName')
+                            const Icon(Icons.check, size: 16)
+                          else
+                            const SizedBox(width: 16),
+                          const SizedBox(width: 8),
+                          const Text('Name'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'PremiereDate',
+                      child: Row(
+                        children: [
+                          if (state.sortBy == 'PremiereDate')
+                            const Icon(Icons.check, size: 16)
+                          else
+                            const SizedBox(width: 16),
+                          const SizedBox(width: 8),
+                          const Text('Release Date'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'DateCreated',
+                      child: Row(
+                        children: [
+                          if (state.sortBy == 'DateCreated')
+                            const Icon(Icons.check, size: 16)
+                          else
+                            const SizedBox(width: 16),
+                          const SizedBox(width: 8),
+                          const Text('Date Added'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'CommunityRating',
+                      child: Row(
+                        children: [
+                          if (state.sortBy == 'CommunityRating')
+                            const Icon(Icons.check, size: 16)
+                          else
+                            const SizedBox(width: 16),
+                          const SizedBox(width: 8),
+                          const Text('Rating'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'Random',
+                      child: Row(
+                        children: [
+                          if (state.sortBy == 'Random')
+                            const Icon(Icons.check, size: 16)
+                          else
+                            const SizedBox(width: 16),
+                          const SizedBox(width: 8),
+                          const Text('Random'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                // Sort order toggle
+                if (state.sortBy != 'Random')
+                  IconButton(
+                    icon: Icon(
+                      state.sortOrder == 'Ascending'
+                          ? Icons.arrow_upward
+                          : Icons.arrow_downward,
+                    ),
+                    tooltip: state.sortOrder == 'Ascending'
+                        ? 'Ascending'
+                        : 'Descending',
+                    onPressed: () {
+                      final newOrder = state.sortOrder == 'Ascending'
+                          ? 'Descending'
+                          : 'Ascending';
+                      ref
+                          .read(libraryItemsProvider(widget.libraryId).notifier)
+                          .setSortOptions(state.sortBy, newOrder);
+                    },
+                  ),
+              ],
+            ),
+            orElse: () => const SizedBox.shrink(),
+          ),
+        ],
+      ),
       body: itemsStateAsync.when(
         data: (state) {
           final items = state.items;
@@ -108,11 +270,35 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                             ),
                             Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: Text(
-                                item['Name'],
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.bodyMedium,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item['Name'],
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                  if (_getSortValue(item, state.sortBy) !=
+                                      null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _getSortValue(item, state.sortBy)!,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.secondary,
+                                          ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ],
