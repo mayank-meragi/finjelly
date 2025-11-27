@@ -9,11 +9,13 @@ import '../providers/library_provider.dart';
 class VideoPlayerScreen extends ConsumerStatefulWidget {
   final String itemId;
   final String itemName;
+  final Duration? initialPosition;
 
   const VideoPlayerScreen({
     super.key,
     required this.itemId,
     required this.itemName,
+    this.initialPosition,
   });
 
   @override
@@ -41,6 +43,10 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     final jellyfinService = ref.read(jellyfinServiceProvider);
     final url = await jellyfinService.getPlaybackUrl(widget.itemId);
     await player.open(Media(url));
+    final startPosition = widget.initialPosition;
+    if (startPosition != null && startPosition > Duration.zero) {
+      await player.seek(startPosition);
+    }
     // Request focus for keyboard shortcuts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();

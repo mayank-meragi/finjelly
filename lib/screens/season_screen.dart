@@ -180,6 +180,13 @@ class SeasonScreen extends ConsumerWidget {
                           final episode =
                               episodes[index] as Map<String, dynamic>;
                           final isWatched = isVideoWatched(episode);
+                          final resumePosition = getResumePosition(episode);
+                          final remainingDuration = getRemainingDuration(
+                            episode,
+                          );
+                          final hasRemaining = remainingDuration != null;
+                          final showWatchedIndicator =
+                              !hasRemaining && isWatched;
                           final episodeIndex =
                               episode['IndexNumber'] ?? index + 1;
                           return Column(
@@ -197,6 +204,7 @@ class SeasonScreen extends ConsumerWidget {
                                               VideoPlayerScreen(
                                                 itemId: episode['Id'],
                                                 itemName: episode['Name'],
+                                                initialPosition: resumePosition,
                                               ),
                                         ),
                                       );
@@ -252,7 +260,35 @@ class SeasonScreen extends ConsumerWidget {
                                             ),
                                           ),
                                         ),
-                                        if (isWatched) const WatchedIndicator(),
+                                        if (hasRemaining)
+                                          Positioned(
+                                            bottom: 8,
+                                            left: 8,
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withValues(
+                                                  alpha: 0.7,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                '${formatDurationShort(remainingDuration)} left',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        if (showWatchedIndicator)
+                                          const WatchedIndicator(),
                                       ],
                                     ),
                                   ),

@@ -184,6 +184,9 @@ class JellyfinService {
     try {
       final response = await _dio.get(
         '$serverUrl/Users/$userId/Items/$itemId',
+        queryParameters: {
+          'Fields': 'UserData,RunTimeTicks',
+        },
         options: Options(headers: headers),
       );
       return response.data;
@@ -250,7 +253,8 @@ class JellyfinService {
           'IncludeItemTypes': 'Episode',
           'SortBy': 'SortName',
           'SortOrder': 'Ascending',
-          'Fields': 'PrimaryImageAspectRatio,Overview,ProductionYear,UserData',
+          'Fields':
+              'PrimaryImageAspectRatio,Overview,ProductionYear,UserData,RunTimeTicks',
         },
         options: Options(headers: headers),
       );

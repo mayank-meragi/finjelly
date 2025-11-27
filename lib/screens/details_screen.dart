@@ -42,6 +42,9 @@ class DetailsScreen extends ConsumerWidget {
           final productionYear = item['ProductionYear']?.toString() ?? '';
           final communityRating = item['CommunityRating']?.toString() ?? '';
           final officialRating = item['OfficialRating'] ?? '';
+          final resumePosition = getResumePosition(item);
+          final remainingDuration = getRemainingDuration(item);
+          final isMovie = item['Type'] == 'Movie';
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
@@ -151,6 +154,7 @@ class DetailsScreen extends ConsumerWidget {
                                         builder: (context) => VideoPlayerScreen(
                                           itemId: itemId,
                                           itemName: itemName,
+                                          initialPosition: resumePosition,
                                         ),
                                       ),
                                     );
@@ -159,9 +163,9 @@ class DetailsScreen extends ConsumerWidget {
                                     Icons.play_arrow,
                                     color: Colors.black,
                                   ),
-                                  label: const Text(
-                                    'Play',
-                                    style: TextStyle(color: Colors.black),
+                                  label: Text(
+                                    resumePosition != null ? 'Resume' : 'Play',
+                                    style: const TextStyle(color: Colors.black),
                                   ),
                                   style: FilledButton.styleFrom(
                                     backgroundColor: Colors.amber,
@@ -189,7 +193,15 @@ class DetailsScreen extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 16),
+                          if (isMovie && remainingDuration != null) ...[
+                            Text(
+                              '${formatDurationShort(remainingDuration)} remaining',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: Colors.amber),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                           Text(
                             overview,
                             style: Theme.of(context).textTheme.bodyLarge,
@@ -222,8 +234,9 @@ class DetailsScreen extends ConsumerWidget {
                             itemBuilder: (context, index) {
                               final season =
                                   seasons[index] as Map<String, dynamic>;
-                              final unwatchedCount =
-                                  getUnwatchedEpisodeCount(season);
+                              final unwatchedCount = getUnwatchedEpisodeCount(
+                                season,
+                              );
                               return SizedBox(
                                 width: 160,
                                 child: Column(
