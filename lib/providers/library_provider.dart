@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/jellyfin_service.dart';
 import 'auth_provider.dart';
 
@@ -49,10 +50,24 @@ class LibraryItemsNotifier
   final JellyfinService _jellyfinService;
   final String _parentId;
   static const int _limit = 25;
+  static const String _sortKeyPrefix = 'library_sort_';
 
   LibraryItemsNotifier(this._jellyfinService, this._parentId)
     : super(const AsyncValue.loading()) {
-    _loadInitial();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sortBy = prefs.getString('${_sortKeyPrefix}${_parentId}_by');
+    final sortOrder = prefs.getString('${_sortKeyPrefix}${_parentId}_order');
+    await _loadInitial(sortBy: sortBy, sortOrder: sortOrder);
+  }
+
+  Future<void> _saveSortOptions(String sortBy, String sortOrder) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('${_sortKeyPrefix}${_parentId}_by', sortBy);
+    await prefs.setString('${_sortKeyPrefix}${_parentId}_order', sortOrder);
   }
 
   Future<void> _loadInitial({String? sortBy, String? sortOrder}) async {
@@ -81,6 +96,7 @@ class LibraryItemsNotifier
     // Set loading state
     state = const AsyncValue.loading();
 
+    await _saveSortOptions(sortBy, sortOrder);
     // Reload with new sort options
     await _loadInitial(sortBy: sortBy, sortOrder: sortOrder);
   }
