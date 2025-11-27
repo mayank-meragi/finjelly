@@ -94,6 +94,83 @@ class JellyfinService {
     }
   }
 
+  Future<List<dynamic>> getRecentlyAdded(
+    String parentId, {
+    int limit = 10,
+  }) async {
+    final serverUrl = await _authService.getServerUrl();
+    final userId = await _authService.getUserId();
+    final headers = await _getHeaders();
+
+    try {
+      final response = await _dio.get(
+        '$serverUrl/Users/$userId/Items',
+        queryParameters: {
+          'ParentId': parentId,
+          'SortBy': 'DateCreated',
+          'SortOrder': 'Descending',
+          'Recursive': true,
+          'Fields':
+              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating',
+          'Limit': limit,
+        },
+        options: Options(headers: headers),
+      );
+      return response.data['Items'] ?? [];
+    } catch (e) {
+      print('Error fetching recently added: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> toggleFavorite(String itemId, bool isFavorite) async {
+    final serverUrl = await _authService.getServerUrl();
+    final userId = await _authService.getUserId();
+    final headers = await _getHeaders();
+
+    try {
+      if (isFavorite) {
+        // Remove from favorites
+        await _dio.delete(
+          '$serverUrl/Users/$userId/FavoriteItems/$itemId',
+          options: Options(headers: headers),
+        );
+      } else {
+        // Add to favorites
+        await _dio.post(
+          '$serverUrl/Users/$userId/FavoriteItems/$itemId',
+          options: Options(headers: headers),
+        );
+      }
+    } catch (e) {
+      print('Error toggling favorite: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<dynamic>> getFavorites() async {
+    final serverUrl = await _authService.getServerUrl();
+    final userId = await _authService.getUserId();
+    final headers = await _getHeaders();
+
+    try {
+      final response = await _dio.get(
+        '$serverUrl/Users/$userId/Items',
+        queryParameters: {
+          'Filters': 'IsFavorite',
+          'Recursive': true,
+          'Fields':
+              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating',
+        },
+        options: Options(headers: headers),
+      );
+      return response.data['Items'] ?? [];
+    } catch (e) {
+      print('Error fetching favorites: $e');
+      rethrow;
+    }
+  }
+
   Future<String> getImageUrl(String itemId, {String type = 'Primary'}) async {
     final serverUrl = await _authService.getServerUrl();
     return '$serverUrl/Items/$itemId/Images/$type';

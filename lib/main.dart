@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_layout.dart';
 import 'providers/auth_provider.dart';
 
 void main() {
@@ -21,10 +21,15 @@ class FinJellyApp extends ConsumerWidget {
     return MaterialApp(
       title: 'FinJelly',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple, brightness: Brightness.dark),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
+        ),
         useMaterial3: true,
       ),
-      home: authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),
+      home: authState.isAuthenticated
+          ? const MainLayout()
+          : const LoginScreen(),
     );
   }
 }
