@@ -226,6 +226,7 @@ class JellyfinService {
           'IncludeItemTypes': 'Season',
           'SortBy': 'SortName',
           'SortOrder': 'Ascending',
+          'Fields': 'PrimaryImageAspectRatio,Overview,ProductionYear,UserData',
         },
         options: Options(headers: headers),
       );

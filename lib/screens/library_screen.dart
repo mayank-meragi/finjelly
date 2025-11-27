@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/library_provider.dart';
 import '../utils/watch_status.dart';
+import '../widgets/unwatched_badge.dart';
 import '../widgets/watched_indicator.dart';
 import 'details_screen.dart';
 
@@ -233,6 +234,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
 
                     final item = items[index] as Map<String, dynamic>;
                     final isWatched = isVideoWatched(item);
+                    final unwatchedCount = getUnwatchedEpisodeCount(item);
                     return Card(
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
@@ -275,6 +277,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                     fit: StackFit.expand,
                                     children: [
                                       child,
+                                      if (unwatchedCount != null)
+                                        UnwatchedBadge(count: unwatchedCount),
                                       if (isWatched) const WatchedIndicator(),
                                     ],
                                   );

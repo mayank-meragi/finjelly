@@ -36,3 +36,26 @@ bool isVideoWatched(Map<String, dynamic>? item) {
 
   return false;
 }
+
+int? getUnwatchedEpisodeCount(Map<String, dynamic>? item) {
+  if (item == null) {
+    return null;
+  }
+
+  final type = item['Type'] as String?;
+  if (type != 'Series' && type != 'Season') {
+    return null;
+  }
+
+  final userData = item['UserData'];
+  if (userData is! Map<String, dynamic>) {
+    return null;
+  }
+
+  final unplayed = userData['UnplayedItemCount'];
+  if (unplayed is num && unplayed > 0) {
+    return unplayed.toInt();
+  }
+
+  return null;
+}

@@ -4,6 +4,7 @@ import '../providers/search_provider.dart';
 import '../providers/library_provider.dart';
 import '../services/jellyfin_service.dart';
 import '../utils/watch_status.dart';
+import '../widgets/unwatched_badge.dart';
 import '../widgets/watched_indicator.dart';
 import 'details_screen.dart';
 
@@ -142,6 +143,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       itemBuilder: (context, index) {
         final item = searchState.results[index] as Map<String, dynamic>;
         final isWatched = isVideoWatched(item);
+        final unwatchedCount = getUnwatchedEpisodeCount(item);
         return Card(
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -178,6 +180,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         fit: StackFit.expand,
                         children: [
                           child,
+                          if (unwatchedCount != null)
+                            UnwatchedBadge(count: unwatchedCount),
                           if (isWatched) const WatchedIndicator(),
                         ],
                       );

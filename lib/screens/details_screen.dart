@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/library_provider.dart';
+import '../utils/watch_status.dart';
+import '../widgets/unwatched_badge.dart';
 import 'video_player_screen.dart';
 import 'season_screen.dart';
 
@@ -218,7 +220,10 @@ class DetailsScreen extends ConsumerWidget {
                             separatorBuilder: (context, index) =>
                                 const SizedBox(width: 16),
                             itemBuilder: (context, index) {
-                              final season = seasons[index];
+                              final season =
+                                  seasons[index] as Map<String, dynamic>;
+                              final unwatchedCount =
+                                  getUnwatchedEpisodeCount(season);
                               return SizedBox(
                                 width: 160,
                                 child: Column(
@@ -247,8 +252,9 @@ class DetailsScreen extends ConsumerWidget {
                                               season['Id'],
                                             ),
                                             builder: (context, snapshot) {
+                                              Widget poster;
                                               if (snapshot.hasData) {
-                                                return Image.network(
+                                                poster = Image.network(
                                                   snapshot.data!,
                                                   fit: BoxFit.cover,
                                                   errorBuilder:
@@ -262,10 +268,22 @@ class DetailsScreen extends ConsumerWidget {
                                                         ),
                                                       ),
                                                 );
+                                              } else {
+                                                poster = const Center(
+                                                  child:
+                                                      CircularProgressIndicator(),
+                                                );
                                               }
-                                              return const Center(
-                                                child:
-                                                    CircularProgressIndicator(),
+
+                                              return Stack(
+                                                fit: StackFit.expand,
+                                                children: [
+                                                  poster,
+                                                  if (unwatchedCount != null)
+                                                    UnwatchedBadge(
+                                                      count: unwatchedCount,
+                                                    ),
+                                                ],
                                               );
                                             },
                                           ),

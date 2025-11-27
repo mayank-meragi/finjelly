@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/library_provider.dart';
 import '../services/jellyfin_service.dart';
 import '../utils/watch_status.dart';
+import '../widgets/unwatched_badge.dart';
 import '../widgets/watched_indicator.dart';
 import 'details_screen.dart';
 import 'library_screen.dart';
@@ -110,6 +111,7 @@ class _LibrarySection extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final item = items[index] as Map<String, dynamic>;
                   final isWatched = isVideoWatched(item);
+                  final unwatchedCount = getUnwatchedEpisodeCount(item);
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: SizedBox(
@@ -160,6 +162,8 @@ class _LibrarySection extends StatelessWidget {
                                       fit: StackFit.expand,
                                       children: [
                                         child,
+                                        if (unwatchedCount != null)
+                                          UnwatchedBadge(count: unwatchedCount),
                                         if (isWatched)
                                           const WatchedIndicator(),
                                       ],
