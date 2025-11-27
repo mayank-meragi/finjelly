@@ -66,6 +66,34 @@ class JellyfinService {
     }
   }
 
+  Future<List<dynamic>> searchItems(String searchTerm) async {
+    if (searchTerm.isEmpty) {
+      return [];
+    }
+
+    final serverUrl = await _authService.getServerUrl();
+    final userId = await _authService.getUserId();
+    final headers = await _getHeaders();
+
+    try {
+      final response = await _dio.get(
+        '$serverUrl/Users/$userId/Items',
+        queryParameters: {
+          'searchTerm': searchTerm,
+          'Recursive': true,
+          'Fields':
+              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating',
+          'Limit': 50,
+        },
+        options: Options(headers: headers),
+      );
+      return response.data['Items'] ?? [];
+    } catch (e) {
+      print('Error searching items: $e');
+      rethrow;
+    }
+  }
+
   Future<String> getImageUrl(String itemId, {String type = 'Primary'}) async {
     final serverUrl = await _authService.getServerUrl();
     return '$serverUrl/Items/$itemId/Images/$type';
