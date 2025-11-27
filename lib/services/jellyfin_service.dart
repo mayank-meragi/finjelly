@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+
 import 'auth_service.dart';
 
 class JellyfinService {
@@ -81,6 +82,26 @@ class JellyfinService {
     } catch (e) {
       print('Error fetching item details: $e');
       rethrow;
+    }
+  }
+
+  Future<List<dynamic>> getChapters(String itemId) async {
+    final headers = await _getHeaders();
+    final userId = await _authService.getUserId();
+    final serverUrl = await _authService.getServerUrl();
+    try {
+      final response = await _dio.get(
+        '$serverUrl/Users/$userId/Items/$itemId',
+        options: Options(headers: headers),
+      );
+      if (response.statusCode == 200) {
+        return response.data['Chapters'] ?? [];
+      } else {
+        throw Exception('Failed to load chapters');
+      }
+    } catch (e) {
+      // print('Error fetching chapters: $e');
+      return [];
     }
   }
 
