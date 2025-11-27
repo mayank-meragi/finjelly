@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/search_provider.dart';
 import '../providers/library_provider.dart';
 import '../services/jellyfin_service.dart';
+import '../utils/watch_status.dart';
+import '../widgets/watched_indicator.dart';
 import 'details_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -138,7 +140,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
       itemCount: searchState.results.length,
       itemBuilder: (context, index) {
-        final item = searchState.results[index];
+        final item = searchState.results[index] as Map<String, dynamic>;
+        final isWatched = isVideoWatched(item);
         return Card(
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -158,15 +161,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   child: FutureBuilder<String>(
                     future: jellyfinService.getImageUrl(item['Id']),
                     builder: (context, snapshot) {
+                      Widget child;
                       if (snapshot.hasData) {
-                        return Image.network(
+                        child = Image.network(
                           snapshot.data!,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
                               const Center(child: Icon(Icons.broken_image)),
                         );
+                      } else {
+                        child = const Center(
+                          child: CircularProgressIndicator(),
+                        );
                       }
-                      return const Center(child: CircularProgressIndicator());
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          child,
+                          if (isWatched) const WatchedIndicator(),
+                        ],
+                      );
                     },
                   ),
                 ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/library_provider.dart';
+import '../utils/watch_status.dart';
+import '../widgets/watched_indicator.dart';
 import 'details_screen.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
@@ -229,7 +231,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    final item = items[index];
+                    final item = items[index] as Map<String, dynamic>;
+                    final isWatched = isVideoWatched(item);
                     return Card(
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
@@ -251,8 +254,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                               child: FutureBuilder<String>(
                                 future: jellyfinService.getImageUrl(item['Id']),
                                 builder: (context, snapshot) {
+                                  Widget child;
                                   if (snapshot.hasData) {
-                                    return Image.network(
+                                    child = Image.network(
                                       snapshot.data!,
                                       fit: BoxFit.cover,
                                       errorBuilder:
@@ -261,9 +265,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                                 child: Icon(Icons.broken_image),
                                               ),
                                     );
+                                  } else {
+                                    child = const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
                                   }
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
+
+                                  return Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      child,
+                                      if (isWatched) const WatchedIndicator(),
+                                    ],
                                   );
                                 },
                               ),

@@ -53,7 +53,7 @@ class JellyfinService {
           'SortBy': sortBy,
           'SortOrder': sortOrder,
           'Fields':
-              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating',
+              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating,UserData',
           'StartIndex': startIndex,
           'Limit': limit,
         },
@@ -82,7 +82,7 @@ class JellyfinService {
           'searchTerm': searchTerm,
           'Recursive': true,
           'Fields':
-              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating',
+              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating,UserData',
           'Limit': 50,
         },
         options: Options(headers: headers),
@@ -111,7 +111,7 @@ class JellyfinService {
           'SortOrder': 'Descending',
           'Recursive': true,
           'Fields':
-              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating',
+              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating,UserData',
           'Limit': limit,
         },
         options: Options(headers: headers),
@@ -160,7 +160,7 @@ class JellyfinService {
           'Filters': 'IsFavorite',
           'Recursive': true,
           'Fields':
-              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating',
+              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating,UserData',
         },
         options: Options(headers: headers),
       );
@@ -249,7 +249,7 @@ class JellyfinService {
           'IncludeItemTypes': 'Episode',
           'SortBy': 'SortName',
           'SortOrder': 'Ascending',
-          'Fields': 'PrimaryImageAspectRatio,Overview,ProductionYear',
+          'Fields': 'PrimaryImageAspectRatio,Overview,ProductionYear,UserData',
         },
         options: Options(headers: headers),
       );

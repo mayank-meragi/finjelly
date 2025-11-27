@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/library_provider.dart';
+import '../utils/watch_status.dart';
+import '../widgets/watched_indicator.dart';
 import 'video_player_screen.dart';
 
 class SeasonScreen extends ConsumerWidget {
@@ -175,7 +177,9 @@ class SeasonScreen extends ConsumerWidget {
                             ),
                         itemCount: episodes.length,
                         itemBuilder: (context, index) {
-                          final episode = episodes[index];
+                          final episode =
+                              episodes[index] as Map<String, dynamic>;
+                          final isWatched = isVideoWatched(episode);
                           final episodeIndex =
                               episode['IndexNumber'] ?? index + 1;
                           return Column(
@@ -248,6 +252,7 @@ class SeasonScreen extends ConsumerWidget {
                                             ),
                                           ),
                                         ),
+                                        if (isWatched) const WatchedIndicator(),
                                       ],
                                     ),
                                   ),
