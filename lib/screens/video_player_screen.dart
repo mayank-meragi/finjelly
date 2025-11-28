@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,6 +31,12 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
   final FocusNode _focusNode = FocusNode();
   List<dynamic> _chapters = [];
   bool _hoveringSeekBar = false;
+  bool _isFullscreen = false;
+
+  bool get _supportsOrientation {
+    return defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS;
+  }
 
   @override
   void initState() {
@@ -88,6 +95,70 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     _onUserInteraction();
   }
 
+  Duration? _ticksToDuration(dynamic ticks) {
+    if (ticks is num) {
+      return Duration(microseconds: ticks ~/ 10);
+    }
+    return null;
+  }
+
+  Duration _clampPosition(Duration value) {
+    var target = value;
+    if (target < Duration.zero) {
+      target = Duration.zero;
+    }
+    final total = player.state.duration;
+    if (total > Duration.zero && target > total) {
+      target = total;
+    }
+    return target;
+  }
+
+  Future<void> _seekTo(Duration position) async {
+    await player.seek(_clampPosition(position));
+    _onUserInteraction();
+  }
+
+  Future<void> _seekRelative(Duration offset) async {
+    final current = player.state.position;
+    await _seekTo(current + offset);
+  }
+
+  bool get _hasChapterNavigation {
+    return _chapters.any(
+      (chapter) => _ticksToDuration(chapter['StartPositionTicks']) != null,
+    );
+  }
+
+  Future<void> _jumpToPreviousChapter() async {
+    if (_chapters.isEmpty) return;
+    final position = player.state.position;
+    const threshold = Duration(seconds: 2);
+    for (var i = _chapters.length - 1; i >= 0; i--) {
+      final start = _ticksToDuration(_chapters[i]['StartPositionTicks']);
+      if (start == null) continue;
+      if (start < position - threshold) {
+        await _seekTo(start);
+        return;
+      }
+    }
+    await _seekTo(Duration.zero);
+  }
+
+  Future<void> _jumpToNextChapter() async {
+    if (_chapters.isEmpty) return;
+    final position = player.state.position;
+    const threshold = Duration(seconds: 1);
+    for (final chapter in _chapters) {
+      final start = _ticksToDuration(chapter['StartPositionTicks']);
+      if (start == null) continue;
+      if (start > position + threshold) {
+        await _seekTo(start);
+        return;
+      }
+    }
+  }
+
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final hours = duration.inHours;
@@ -109,6 +180,49 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
     final period = time.hour >= 12 ? 'PM' : 'AM';
     final minute = twoDigits(time.minute);
     return '$hour:$minute $period';
+  }
+
+  String _trackLabelFromFields({
+    required String? title,
+    required String? language,
+    required String id,
+  }) {
+    final trimmedTitle = title?.trim();
+    if (trimmedTitle != null && trimmedTitle.isNotEmpty) {
+      return trimmedTitle;
+    }
+    final trimmedLanguage = language?.trim();
+    if (trimmedLanguage != null && trimmedLanguage.isNotEmpty) {
+      return trimmedLanguage;
+    }
+    if (id == 'auto') return 'Auto';
+    if (id == 'no') return 'None';
+    return id;
+  }
+
+  String _describeTrack(dynamic track) {
+    if (track is VideoTrack) {
+      return _trackLabelFromFields(
+        title: track.title,
+        language: track.language,
+        id: track.id,
+      );
+    }
+    if (track is AudioTrack) {
+      return _trackLabelFromFields(
+        title: track.title,
+        language: track.language,
+        id: track.id,
+      );
+    }
+    if (track is SubtitleTrack) {
+      return _trackLabelFromFields(
+        title: track.title,
+        language: track.language,
+        id: track.id,
+      );
+    }
+    return track.toString();
   }
 
   void _showTrackSelection(
@@ -134,10 +248,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                   itemBuilder: (context, index) {
                     final track = tracks[index];
                     final isSelected = track == currentTrack;
+                    final trackName = _describeTrack(track);
                     return ListTile(
-                      title: Text(
-                        track.toString(),
-                      ), // Adjust based on track object
+                      title: Text(trackName),
                       trailing: isSelected ? const Icon(Icons.check) : null,
                       onTap: () {
                         onSelect(track);
@@ -156,10 +269,54 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
 
   @override
   void dispose() {
+    _restoreSystemUI();
     player.dispose();
     _hideTimer?.cancel();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _enterFullscreen() async {
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [],
+    );
+    if (_supportsOrientation) {
+      await SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
+    if (mounted) {
+      setState(() {
+        _isFullscreen = true;
+      });
+    }
+  }
+
+  Future<void> _restoreSystemUI() async {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    if (_supportsOrientation) {
+      await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
+  }
+
+  Future<void> _exitFullscreen() async {
+    await _restoreSystemUI();
+    if (mounted) {
+      setState(() {
+        _isFullscreen = false;
+      });
+    }
+  }
+
+  Future<void> _toggleFullscreen() async {
+    if (_isFullscreen) {
+      await _exitFullscreen();
+    } else {
+      await _enterFullscreen();
+    }
+    _onUserInteraction();
   }
 
   @override
@@ -214,6 +371,16 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                 color: Colors.white,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              onPressed: _toggleFullscreen,
+                              color: Colors.white,
+                              icon: Icon(
+                                _isFullscreen
+                                    ? Icons.fullscreen_exit
+                                    : Icons.fullscreen,
                               ),
                             ),
                           ],
@@ -519,6 +686,15 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                       );
                                     },
                                   ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.skip_previous,
+                                      color: Colors.white,
+                                    ),
+                                    onPressed: _hasChapterNavigation
+                                        ? _jumpToPreviousChapter
+                                        : null,
+                                  ),
                                   // Skip back 10s
                                   IconButton(
                                     icon: const Icon(
@@ -526,11 +702,9 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                       color: Colors.white,
                                     ),
                                     onPressed: () {
-                                      player.seek(
-                                        player.state.position -
-                                            const Duration(seconds: 10),
+                                      _seekRelative(
+                                        const Duration(seconds: -10),
                                       );
-                                      _onUserInteraction();
                                     },
                                   ),
                                   // Play/Pause
@@ -557,12 +731,19 @@ class _VideoPlayerScreenState extends ConsumerState<VideoPlayerScreen> {
                                       color: Colors.white,
                                     ),
                                     onPressed: () {
-                                      player.seek(
-                                        player.state.position +
-                                            const Duration(seconds: 30),
+                                      _seekRelative(
+                                        const Duration(seconds: 30),
                                       );
-                                      _onUserInteraction();
                                     },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.skip_next,
+                                      color: Colors.white,
+                                    ),
+                                    onPressed: _hasChapterNavigation
+                                        ? _jumpToNextChapter
+                                        : null,
                                   ),
                                   // Audio button
                                   IconButton(

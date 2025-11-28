@@ -59,15 +59,15 @@ class LibraryItemsNotifier
 
   Future<void> _init() async {
     final prefs = await SharedPreferences.getInstance();
-    final sortBy = prefs.getString('${_sortKeyPrefix}${_parentId}_by');
-    final sortOrder = prefs.getString('${_sortKeyPrefix}${_parentId}_order');
+    final sortBy = prefs.getString('$_sortKeyPrefix${_parentId}_by');
+    final sortOrder = prefs.getString('$_sortKeyPrefix${_parentId}_order');
     await _loadInitial(sortBy: sortBy, sortOrder: sortOrder);
   }
 
   Future<void> _saveSortOptions(String sortBy, String sortOrder) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('${_sortKeyPrefix}${_parentId}_by', sortBy);
-    await prefs.setString('${_sortKeyPrefix}${_parentId}_order', sortOrder);
+    await prefs.setString('$_sortKeyPrefix${_parentId}_by', sortBy);
+    await prefs.setString('$_sortKeyPrefix${_parentId}_order', sortOrder);
   }
 
   Future<void> _loadInitial({String? sortBy, String? sortOrder}) async {
