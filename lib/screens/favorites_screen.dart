@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/library_provider.dart';
+import '../providers/metadata_provider.dart';
 import '../utils/watch_status.dart';
 import '../widgets/unwatched_badge.dart';
 import '../widgets/watched_indicator.dart';
+import '../widgets/metadata_badge.dart';
 import 'details_screen.dart';
 
 class FavoritesScreen extends ConsumerWidget {
@@ -73,9 +75,7 @@ class FavoritesScreen extends ConsumerWidget {
                               snapshot.data!,
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
-                                  const Center(
-                                    child: Icon(Icons.broken_image),
-                                  ),
+                                  const Center(child: Icon(Icons.broken_image)),
                             );
                           } else {
                             child = const Center(
@@ -90,6 +90,17 @@ class FavoritesScreen extends ConsumerWidget {
                               if (unwatchedCount != null)
                                 UnwatchedBadge(count: unwatchedCount),
                               if (isWatched) const WatchedIndicator(),
+                              FutureBuilder<bool>(
+                                future: ref
+                                    .read(appDatabaseProvider)
+                                    .hasMetadata(item['Id']),
+                                builder: (context, snapshot) {
+                                  if (snapshot.data == true) {
+                                    return const MetadataBadge();
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              ),
                             ],
                           );
                         },

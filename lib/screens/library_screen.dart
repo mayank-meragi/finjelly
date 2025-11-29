@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/library_provider.dart';
+import '../providers/metadata_provider.dart';
+import '../providers/sync_state_provider.dart';
+import '../providers/auto_sync_provider.dart';
 import '../utils/watch_status.dart';
 import '../widgets/unwatched_badge.dart';
 import '../widgets/watched_indicator.dart';
+import '../widgets/metadata_badge.dart';
 import 'details_screen.dart';
 
 class LibraryScreen extends ConsumerStatefulWidget {
@@ -27,6 +32,75 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _triggerAutoSync();
+  }
+
+  Future<void> _triggerAutoSync() async {
+    final prefs = await SharedPreferences.getInstance();
+    final autoSyncEnabled = prefs.getBool('auto_sync_metadata') ?? true;
+
+    if (!autoSyncEnabled) return;
+
+    final syncTracker = ref.read(autoSyncTrackerProvider.notifier);
+    final hasBeenSynced = syncTracker.hasBeenSynced(widget.libraryId);
+
+    if (hasBeenSynced) {
+      return; // Already synced this session
+    }
+
+    final metadataSync = ref.read(metadataSyncServiceProvider);
+    final syncState = ref.read(syncStateProvider.notifier);
+
+    // Mark as synced before starting to prevent duplicate syncs
+    syncTracker.markAsSynced(widget.libraryId);
+
+    // Show subtle initial toast
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Auto-syncing metadata...'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.blue,
+        ),
+      );
+    }
+
+    // Start background sync
+    syncState.startSync(0);
+
+    metadataSync
+        .syncUnsyncedItems(
+          widget.libraryId,
+          onProgress: (done, total) {
+            syncState.updateProgress(done, total);
+
+            // Show progress toast every 10 items or at the end
+            if (done % 10 == 0 || done == total) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).clearSnackBars();
+                if (total > 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Auto-sync: $done/$total'),
+                      duration: done == total
+                          ? const Duration(seconds: 3)
+                          : const Duration(seconds: 1),
+                      backgroundColor: done == total
+                          ? Colors.green
+                          : Colors.blue,
+                    ),
+                  );
+                }
+              }
+            }
+          },
+        )
+        .then((_) {
+          syncState.endSync();
+        })
+        .catchError((e) {
+          syncState.endSync();
+        });
   }
 
   @override
@@ -96,6 +170,89 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     }
   }
 
+  void _showFilterDialog(BuildContext context, LibraryItemsState currentState) {
+    showDialog(
+      context: context,
+      builder: (context) => _FilterDialog(
+        initialState: currentState,
+        onApply:
+            (
+              bool? isPlayed,
+              bool isFavorite,
+              List<String> genreIds,
+              List<String> officialRatings,
+              List<String> years,
+            ) {
+              ref
+                  .read(libraryItemsProvider(widget.libraryId).notifier)
+                  .updateFilters(
+                    isPlayed: isPlayed,
+                    isFavorite: isFavorite,
+                    genreIds: genreIds,
+                    officialRatings: officialRatings,
+                    years: years,
+                  );
+            },
+      ),
+    );
+  }
+
+  Future<void> _syncMetadata(BuildContext context) async {
+    final metadataSync = ref.read(metadataSyncServiceProvider);
+    final syncState = ref.read(syncStateProvider.notifier);
+
+    // Start sync in background
+    syncState.startSync(0);
+
+    // Show initial toast
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Starting metadata sync...'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: Colors.blue,
+      ),
+    );
+
+    // Run sync in background
+    metadataSync
+        .syncLibrary(
+          widget.libraryId,
+          onProgress: (done, total) {
+            syncState.updateProgress(done, total);
+
+            // Show progress toast every 5 items or at the end
+            if (done % 5 == 0 || done == total) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Syncing metadata: $done/$total'),
+                    duration: done == total
+                        ? const Duration(seconds: 3)
+                        : const Duration(seconds: 1),
+                    backgroundColor: done == total ? Colors.green : Colors.blue,
+                  ),
+                );
+              }
+            }
+          },
+        )
+        .then((_) {
+          syncState.endSync();
+        })
+        .catchError((e) {
+          syncState.endSync();
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Sync failed: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        });
+  }
+
   @override
   Widget build(BuildContext context) {
     final itemsStateAsync = ref.watch(libraryItemsProvider(widget.libraryId));
@@ -108,6 +265,18 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           itemsStateAsync.maybeWhen(
             data: (state) => Row(
               children: [
+                // Sync Metadata button
+                IconButton(
+                  icon: const Icon(Icons.sync),
+                  tooltip: 'Sync Metadata',
+                  onPressed: () => _syncMetadata(context),
+                ),
+                // Filter button
+                IconButton(
+                  icon: const Icon(Icons.filter_list),
+                  tooltip: 'Filter',
+                  onPressed: () => _showFilterDialog(context, state),
+                ),
                 // Sort field selector
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.sort),
@@ -280,6 +449,17 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                                       if (unwatchedCount != null)
                                         UnwatchedBadge(count: unwatchedCount),
                                       if (isWatched) const WatchedIndicator(),
+                                      FutureBuilder<bool>(
+                                        future: ref
+                                            .read(appDatabaseProvider)
+                                            .hasMetadata(item['Id']),
+                                        builder: (context, snapshot) {
+                                          if (snapshot.data == true) {
+                                            return const MetadataBadge();
+                                          }
+                                          return const SizedBox.shrink();
+                                        },
+                                      ),
                                     ],
                                   );
                                 },
@@ -331,6 +511,209 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
+    );
+  }
+}
+
+class _FilterDialog extends StatefulWidget {
+  final LibraryItemsState initialState;
+  final Function(
+    bool? isPlayed,
+    bool isFavorite,
+    List<String> genreIds,
+    List<String> officialRatings,
+    List<String> years,
+  )
+  onApply;
+
+  const _FilterDialog({required this.initialState, required this.onApply});
+
+  @override
+  State<_FilterDialog> createState() => _FilterDialogState();
+}
+
+class _FilterDialogState extends State<_FilterDialog> {
+  late bool? _isPlayed;
+  late bool _isFavorite;
+  late List<String> _selectedGenreIds;
+  late List<String> _selectedOfficialRatings;
+  late List<String> _selectedYears;
+
+  @override
+  void initState() {
+    super.initState();
+    _isPlayed = widget.initialState.filterPlayedStatus;
+    _isFavorite = widget.initialState.filterFavorites;
+    _selectedGenreIds = List.from(widget.initialState.selectedGenreIds);
+    _selectedOfficialRatings = List.from(
+      widget.initialState.selectedOfficialRatings,
+    );
+    _selectedYears = List.from(widget.initialState.selectedYears);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final genres = widget.initialState.availableFilters['Genres'] ?? [];
+    final years = widget.initialState.availableFilters['Years'] ?? [];
+    final officialRatings =
+        widget.initialState.availableFilters['OfficialRatings'] ?? [];
+
+    return AlertDialog(
+      title: const Text('Filter Library'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Status', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                FilterChip(
+                  label: const Text('All'),
+                  selected: _isPlayed == null,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _isPlayed = null);
+                  },
+                ),
+                FilterChip(
+                  label: const Text('Played'),
+                  selected: _isPlayed == true,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _isPlayed = true);
+                  },
+                ),
+                FilterChip(
+                  label: const Text('Unplayed'),
+                  selected: _isPlayed == false,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _isPlayed = false);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text(
+                  'Favorites Only',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Switch(
+                  value: _isFavorite,
+                  onChanged: (value) => setState(() => _isFavorite = value),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (genres.isNotEmpty) ...[
+              const Text(
+                'Genres',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: genres.map<Widget>((genre) {
+                  final genreId = genre['Id'] as String;
+                  final genreName = genre['Name'] as String;
+                  return FilterChip(
+                    label: Text(genreName),
+                    selected: _selectedGenreIds.contains(genreId),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedGenreIds.add(genreId);
+                        } else {
+                          _selectedGenreIds.remove(genreId);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (years.isNotEmpty) ...[
+              const Text(
+                'Years',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: years.map<Widget>((year) {
+                  final yearStr = year.toString();
+                  return FilterChip(
+                    label: Text(yearStr),
+                    selected: _selectedYears.contains(yearStr),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedYears.add(yearStr);
+                        } else {
+                          _selectedYears.remove(yearStr);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (officialRatings.isNotEmpty) ...[
+              const Text(
+                'Official Ratings',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: officialRatings.map<Widget>((rating) {
+                  final ratingName = rating as String;
+                  return FilterChip(
+                    label: Text(ratingName),
+                    selected: _selectedOfficialRatings.contains(ratingName),
+                    onSelected: (selected) {
+                      setState(() {
+                        if (selected) {
+                          _selectedOfficialRatings.add(ratingName);
+                        } else {
+                          _selectedOfficialRatings.remove(ratingName);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            widget.onApply(
+              _isPlayed,
+              _isFavorite,
+              _selectedGenreIds,
+              _selectedOfficialRatings,
+              _selectedYears,
+            );
+            Navigator.pop(context);
+          },
+          child: const Text('Apply'),
+        ),
+      ],
     );
   }
 }

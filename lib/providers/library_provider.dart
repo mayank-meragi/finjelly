@@ -19,6 +19,12 @@ class LibraryItemsState {
   final bool hasMore;
   final String sortBy;
   final String sortOrder;
+  final bool? filterPlayedStatus; // null: all, true: played, false: unplayed
+  final bool filterFavorites;
+  final List<String> selectedGenreIds;
+  final List<String> selectedOfficialRatings;
+  final List<String> selectedYears;
+  final Map<String, List<dynamic>> availableFilters;
 
   LibraryItemsState({
     required this.items,
@@ -26,6 +32,16 @@ class LibraryItemsState {
     this.hasMore = true,
     this.sortBy = 'SortName',
     this.sortOrder = 'Ascending',
+    this.filterPlayedStatus,
+    this.filterFavorites = false,
+    this.selectedGenreIds = const [],
+    this.selectedOfficialRatings = const [],
+    this.selectedYears = const [],
+    this.availableFilters = const {
+      'Genres': [],
+      'Years': [],
+      'OfficialRatings': [],
+    },
   });
 
   LibraryItemsState copyWith({
@@ -34,6 +50,12 @@ class LibraryItemsState {
     bool? hasMore,
     String? sortBy,
     String? sortOrder,
+    bool? filterPlayedStatus,
+    bool? filterFavorites,
+    List<String>? selectedGenreIds,
+    List<String>? selectedOfficialRatings,
+    List<String>? selectedYears,
+    Map<String, List<dynamic>>? availableFilters,
   }) {
     return LibraryItemsState(
       items: items ?? this.items,
@@ -41,6 +63,13 @@ class LibraryItemsState {
       hasMore: hasMore ?? this.hasMore,
       sortBy: sortBy ?? this.sortBy,
       sortOrder: sortOrder ?? this.sortOrder,
+      filterPlayedStatus: filterPlayedStatus ?? this.filterPlayedStatus,
+      filterFavorites: filterFavorites ?? this.filterFavorites,
+      selectedGenreIds: selectedGenreIds ?? this.selectedGenreIds,
+      selectedOfficialRatings:
+          selectedOfficialRatings ?? this.selectedOfficialRatings,
+      selectedYears: selectedYears ?? this.selectedYears,
+      availableFilters: availableFilters ?? this.availableFilters,
     );
   }
 }
@@ -70,14 +99,29 @@ class LibraryItemsNotifier
     await prefs.setString('$_sortKeyPrefix${_parentId}_order', sortOrder);
   }
 
-  Future<void> _loadInitial({String? sortBy, String? sortOrder}) async {
+  Future<void> _loadInitial({
+    String? sortBy,
+    String? sortOrder,
+    bool? isPlayed,
+    bool? isFavorite,
+    List<String>? genreIds,
+    List<String>? officialRatings,
+    List<String>? years,
+  }) async {
     try {
+      final filters = await _jellyfinService.getFilters(_parentId);
+
       final items = await _jellyfinService.getItems(
         _parentId,
         startIndex: 0,
         limit: _limit,
         sortBy: sortBy ?? 'SortName',
         sortOrder: sortOrder ?? 'Ascending',
+        isPlayed: isPlayed,
+        isFavorite: isFavorite ?? false,
+        genreIds: genreIds,
+        officialRatings: officialRatings,
+        years: years,
       );
       state = AsyncValue.data(
         LibraryItemsState(
@@ -85,6 +129,12 @@ class LibraryItemsNotifier
           hasMore: items.length == _limit,
           sortBy: sortBy ?? 'SortName',
           sortOrder: sortOrder ?? 'Ascending',
+          filterPlayedStatus: isPlayed,
+          filterFavorites: isFavorite ?? false,
+          selectedGenreIds: genreIds ?? [],
+          selectedOfficialRatings: officialRatings ?? [],
+          selectedYears: years ?? [],
+          availableFilters: filters,
         ),
       );
     } catch (e, st) {
@@ -92,13 +142,47 @@ class LibraryItemsNotifier
     }
   }
 
+  Future<void> updateFilters({
+    bool? isPlayed,
+    bool? isFavorite,
+    List<String>? genreIds,
+    List<String>? officialRatings,
+    List<String>? years,
+  }) async {
+    final currentState = state.value;
+    if (currentState == null) return;
+
+    state = const AsyncValue.loading();
+
+    await _loadInitial(
+      sortBy: currentState.sortBy,
+      sortOrder: currentState.sortOrder,
+      isPlayed: isPlayed ?? currentState.filterPlayedStatus,
+      isFavorite: isFavorite ?? currentState.filterFavorites,
+      genreIds: genreIds ?? currentState.selectedGenreIds,
+      officialRatings: officialRatings ?? currentState.selectedOfficialRatings,
+      years: years ?? currentState.selectedYears,
+    );
+  }
+
   Future<void> setSortOptions(String sortBy, String sortOrder) async {
+    final currentState = state.value;
+    if (currentState == null) return;
+
     // Set loading state
     state = const AsyncValue.loading();
 
     await _saveSortOptions(sortBy, sortOrder);
     // Reload with new sort options
-    await _loadInitial(sortBy: sortBy, sortOrder: sortOrder);
+    await _loadInitial(
+      sortBy: sortBy,
+      sortOrder: sortOrder,
+      isPlayed: currentState.filterPlayedStatus,
+      isFavorite: currentState.filterFavorites,
+      genreIds: currentState.selectedGenreIds,
+      officialRatings: currentState.selectedOfficialRatings,
+      years: currentState.selectedYears,
+    );
   }
 
   Future<void> loadNextPage() async {
@@ -120,6 +204,11 @@ class LibraryItemsNotifier
         limit: _limit,
         sortBy: currentState.sortBy,
         sortOrder: currentState.sortOrder,
+        isPlayed: currentState.filterPlayedStatus,
+        isFavorite: currentState.filterFavorites,
+        genreIds: currentState.selectedGenreIds,
+        officialRatings: currentState.selectedOfficialRatings,
+        years: currentState.selectedYears,
       );
 
       state = AsyncValue.data(

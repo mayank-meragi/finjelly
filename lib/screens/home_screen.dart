@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/library_provider.dart';
+import '../providers/metadata_provider.dart';
 import '../services/jellyfin_service.dart';
 import '../utils/watch_status.dart';
 import '../widgets/unwatched_badge.dart';
 import '../widgets/watched_indicator.dart';
+import '../widgets/metadata_badge.dart';
 import 'details_screen.dart';
 import 'library_screen.dart';
 
@@ -158,15 +160,32 @@ class _LibrarySection extends StatelessWidget {
                                       );
                                     }
 
-                                    return Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        child,
-                                        if (unwatchedCount != null)
-                                          UnwatchedBadge(count: unwatchedCount),
-                                        if (isWatched)
-                                          const WatchedIndicator(),
-                                      ],
+                                    return Consumer(
+                                      builder: (context, ref, _) {
+                                        return Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            child,
+                                            if (unwatchedCount != null)
+                                              UnwatchedBadge(
+                                                count: unwatchedCount,
+                                              ),
+                                            if (isWatched)
+                                              const WatchedIndicator(),
+                                            FutureBuilder<bool>(
+                                              future: ref
+                                                  .read(appDatabaseProvider)
+                                                  .hasMetadata(item['Id']),
+                                              builder: (context, snapshot) {
+                                                if (snapshot.data == true) {
+                                                  return const MetadataBadge();
+                                                }
+                                                return const SizedBox.shrink();
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
                                     );
                                   },
                                 ),

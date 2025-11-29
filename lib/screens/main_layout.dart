@@ -5,6 +5,7 @@ import 'home_screen.dart';
 import 'library_list_screen.dart';
 import 'search_screen.dart';
 import 'favorites_screen.dart';
+import 'settings_screen.dart';
 
 class MainLayout extends ConsumerStatefulWidget {
   const MainLayout({super.key});
@@ -21,6 +22,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     LibraryListScreen(),
     SearchScreen(),
     FavoritesScreen(),
+    SettingsScreen(),
   ];
 
   final List<NavigationRailDestination> _destinations = const [
@@ -44,9 +46,20 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       selectedIcon: Icon(Icons.favorite),
       label: Text('Favorites'),
     ),
+    NavigationRailDestination(
+      icon: Icon(Icons.settings_outlined),
+      selectedIcon: Icon(Icons.settings),
+      label: Text('Settings'),
+    ),
   ];
 
-  final List<String> _titles = const ['Home', 'Library', 'Search', 'Favorites'];
+  final List<String> _titles = const [
+    'Home',
+    'Library',
+    'Search',
+    'Favorites',
+    'Settings',
+  ];
 
   @override
   Widget build(BuildContext context) {

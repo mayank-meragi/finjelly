@@ -40,7 +40,64 @@ class JellyfinService {
     int limit = 25,
     String sortBy = 'SortName',
     String sortOrder = 'Ascending',
+    bool? isPlayed,
+    bool isFavorite = false,
+    List<String>? genreIds,
+    List<String>? officialRatings,
+    List<String>? years,
   }) async {
+    final serverUrl = await _authService.getServerUrl();
+    final userId = await _authService.getUserId();
+    final headers = await _getHeaders();
+
+    final Map<String, dynamic> queryParameters = {
+      'ParentId': parentId,
+      'SortBy': sortBy,
+      'SortOrder': sortOrder,
+      'Fields':
+          'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating,UserData,OfficialRating',
+      'StartIndex': startIndex,
+      'Limit': limit,
+      'Recursive': true,
+    };
+
+    if (isPlayed != null) {
+      queryParameters['Filters'] = isPlayed ? 'IsPlayed' : 'IsUnplayed';
+    }
+
+    if (isFavorite) {
+      final currentFilters = queryParameters['Filters'] as String?;
+      queryParameters['Filters'] = currentFilters != null
+          ? '$currentFilters,IsFavorite'
+          : 'IsFavorite';
+    }
+
+    if (genreIds != null && genreIds.isNotEmpty) {
+      queryParameters['GenreIds'] = genreIds.join(',');
+    }
+
+    if (officialRatings != null && officialRatings.isNotEmpty) {
+      queryParameters['OfficialRatings'] = officialRatings.join(',');
+    }
+
+    if (years != null && years.isNotEmpty) {
+      queryParameters['Years'] = years.join(',');
+    }
+
+    try {
+      final response = await _dio.get(
+        '$serverUrl/Users/$userId/Items',
+        queryParameters: queryParameters,
+        options: Options(headers: headers),
+      );
+      return response.data['Items'];
+    } catch (e) {
+      print('Error fetching items: $e');
+      rethrow;
+    }
+  }
+
+  Future<List<dynamic>> getGenres(String parentId) async {
     final serverUrl = await _authService.getServerUrl();
     final userId = await _authService.getUserId();
     final headers = await _getHeaders();
@@ -50,19 +107,39 @@ class JellyfinService {
         '$serverUrl/Users/$userId/Items',
         queryParameters: {
           'ParentId': parentId,
-          'SortBy': sortBy,
-          'SortOrder': sortOrder,
-          'Fields':
-              'PrimaryImageAspectRatio,Overview,ProductionYear,DateCreated,PremiereDate,CommunityRating,UserData',
-          'StartIndex': startIndex,
-          'Limit': limit,
+          'IncludeItemTypes': 'Genre',
+          'Recursive': true,
         },
         options: Options(headers: headers),
       );
-      return response.data['Items'];
+      return response.data['Items'] ?? [];
     } catch (e) {
-      print('Error fetching items: $e');
-      rethrow;
+      print('Error fetching genres: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, List<dynamic>>> getFilters(String parentId) async {
+    final serverUrl = await _authService.getServerUrl();
+    final userId = await _authService.getUserId();
+    final headers = await _getHeaders();
+
+    try {
+      final response = await _dio.get(
+        '$serverUrl/Users/$userId/Items/Filters',
+        queryParameters: {'ParentId': parentId, 'Recursive': true},
+        options: Options(headers: headers),
+      );
+
+      final data = response.data;
+      return {
+        'Genres': data['Genres'] ?? [],
+        'Years': data['Years'] ?? [],
+        'OfficialRatings': data['OfficialRatings'] ?? [],
+      };
+    } catch (e) {
+      print('Error fetching filters: $e');
+      return {'Genres': [], 'Years': [], 'OfficialRatings': []};
     }
   }
 
@@ -184,9 +261,7 @@ class JellyfinService {
     try {
       final response = await _dio.get(
         '$serverUrl/Users/$userId/Items/$itemId',
-        queryParameters: {
-          'Fields': 'UserData,RunTimeTicks',
-        },
+        queryParameters: {'Fields': 'UserData,RunTimeTicks'},
         options: Options(headers: headers),
       );
       return response.data;
